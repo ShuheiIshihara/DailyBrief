@@ -69,3 +69,10 @@ fastlane/test_output
 
 # Claude Code (local only)
 .claude/settings.local.json
+
+# Secrets / config (contains API tokens — never commit)
+DailyBrief/DailyBrief/Config.swift
+
+# LLM model files (multi-GB — never commit, place in Bundle manually)
+*.gguf
+*.ggml

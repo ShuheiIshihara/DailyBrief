@@ -1,0 +1,16 @@
+// Config.swift.example — ダミー値の雛形。実値は Config.swift に記入（git 除外）。
+// 初回セットアップ: $ cp Config.swift.example Config.swift
+
+enum Config {
+    // 愛知県府県予報区コード（気象庁）。変更不要。
+    static let weatherAreaCode = "230000"
+
+    // ODPT consumerKey。未取得の間は空文字のままにしておく。
+    static let odptConsumerKey = ""
+
+    // ODPT で使う事業者 URI。名古屋圏事業者確認後に更新。
+    static let odptOperator = ""
+
+    // 電車遅延機能を有効にするか（トークンが空なら自動で無効）。
+    static var isTrainEnabled: Bool { !odptConsumerKey.isEmpty }
+}
