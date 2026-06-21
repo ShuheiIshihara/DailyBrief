@@ -94,27 +94,41 @@ Summarizer（プロトコル）
 
 ### 正確性ガード
 - LLM は「整形のみ」。生成文に対し、**入力に無い数値トークンが出現したらテンプレ文言にフォールバック**する後段チェックを入れ、数値の正確性を機械的に担保する。
+- 実装: `LLMSummarizer.passesNumericGuard(output:digest:)`。`digest` の `pop`/`minTemp`/`maxTemp` から許容数値集合を作り、生成文の数値（正規表現抽出）が全て含まれるかを検証。1つでも外れたらフォールバック。
+
+### 実装状況（設計のみ完了 / 実バインディング未差し込み）
+
+- `LLMRuntime`（actor）と `LLMSummarizer` の**骨組みは実装済み**。`BriefCheckView` は `LLMSummarizer` 経由。
+- llama.cpp の実バインディングは**未導入**。`LLMRuntime.isAvailable == false` のため、現状は `LLMSummarizer` が静かに `TemplateSummarizer` へフォールバックする（＝今もビルド・動作する）。
+- 実バインディング差し込み時の作業:
+  1. Gemma 4 E2B の Q4 GGUF を取得し、ファイル名 **`gemma-4-e2b.gguf`**（`LLMRuntime.modelResourceName`）で Xcode の Bundle Resources に追加（`.gitignore` 済）。
+  2. llama.cpp を **Gemma 4 / PLE 対応版**で SwiftPM 依存追加 or xcframework リンク。
+  3. `LLMRuntime` の2つの TODO を実装:
+     - `loadModelIfNeeded()`: backend 初期化 → モデル/コンテキスト生成 → 成功時に `isLoaded = true`。
+     - `generate(prompt:)`: トークナイズ → デコードループ → デトークナイズして文字列返却。
+  4. 実機で実行確認（Metal/メモリの都合でシミュレータより実機推奨）。
 
 ---
 
 ## 6. 推奨ビルド順（手戻り最小）
 
-1. **`WeatherService` ＋ `Config.swift` 雛形** — 気象庁 JSON が取得できる状態にする。
-2. **`TemplateSummarizer` ＋ 1画面 View** — ここで「天気 + 要約」が LLM 無しで**一度完成**（動くデモが手に入る）。
-3. **`LLMRuntime`（actor）** — llama.cpp xcframework ビルド → Gemma 4 E2B ロード → 同インターフェースで差し替え。
-4. **数値ガード ＆ フォールバック** — 品質担保を入れて v1 完了。
+1. ✅ **`WeatherService` ＋ `Config.swift` 雛形** — 気象庁 `forecast` JSON を取得し `WeatherDigest` に集約。
+2. ✅ **`TemplateSummarizer` ＋ 確認用 View** — 動作確認画面（`BriefCheckView`）で「天気 + 要約」がテンプレで成立。
+3. 🔶 **`LLMRuntime`（actor）＋ `LLMSummarizer`** — 骨組み実装済み。**実バインディングは未差し込み**（§5「実装状況」参照）。
+4. ✅ **数値ガード ＆ フォールバック** — `LLMSummarizer` に実装済み。
 
-Xcode テンプレートの Core Data 部品（`Item` / `Persistence` / `ContentView` の CRUD）は**流用せず破棄**し、上記構成で新規構築する。
+Xcode テンプレートの SwiftData 部品（`Item` / `ContentView` の CRUD）は**破棄済み**。
+
+> 表示用のメイン画面デザインは別工程。現状は `ContentView` → ボタン → `BriefCheckView`（簡易確認画面）の構成。
 
 ---
 
-## 7. シークレット / 大容量ファイルの扱い（未整備・要対応）
+## 7. シークレット / 大容量ファイルの扱い（整備済み）
 
-> ⚠️ 現状の `.gitignore` は **`Config.swift` も `*.gguf` も除外していない**。CLAUDE.md の記述（Config.swift は .gitignore 対象）と乖離があるため、実装着手前に整備する。
-
-整備すべき内容:
-- `Config.swift` を `.gitignore` に追加。雛形 `Config.swift.example`（ダミー値）を追跡し、初回はこれを複製して `Config.swift` を作る。
-- GGUF モデル（`*.gguf` または配置ディレクトリ）を `.gitignore` に追加。**数GB級をリポジトリに載せない**。手元ビルド時に Bundle へ配置する運用とする。
+`.gitignore` 整備済み:
+- ✅ `DailyBrief/DailyBrief/Config.swift` を除外。雛形 `Config.swift.example`（ダミー値）を追跡。初回は `cp Config.swift.example Config.swift` で作る。
+  - 注: 雛形は `Config.swift.example`（`.swift` ではない）。Xcode 16 のファイルシステム同期グループでは同フォルダ内の `*.swift` が全てビルド対象になり、`enum Config` が二重定義されるため、コンパイルされない拡張子にしている。
+- ✅ `*.gguf` / `*.ggml` を除外。**数GB級をリポジトリに載せない**。手元ビルド時に Bundle へ配置する運用。
 - 対象シークレット: ODPT `acl:consumerKey` 等。履歴に載せない。
 
 ---

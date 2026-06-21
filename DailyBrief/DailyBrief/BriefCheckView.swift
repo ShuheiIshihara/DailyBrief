@@ -4,7 +4,7 @@ import SwiftUI
 /// 天気取得 → Summarizer 整形 の経路を実機で確認する。
 struct BriefCheckView: View {
     private let weatherService = WeatherService()
-    private let summarizer: Summarizer = TemplateSummarizer()
+    private let summarizer: Summarizer = LLMSummarizer()
 
     @State private var summary = ""
     @State private var rawText = ""
